@@ -5,7 +5,7 @@ using System;
 
 namespace MonoMod.SourceGen.Internal
 {
-    internal sealed record TypeRef(string MdName, string FqName, string Name, string Refness) 
+    internal sealed record TypeRef(string MdName, string FqName, string Name, string Refness)
     {
         public TypeRef WithRefness(string refness = "")
         {
@@ -72,7 +72,8 @@ namespace MonoMod.SourceGen.Internal
             => GetRefString(param.RefKind, isReturn);
 
         public static string GetRefString(RefKind refKind, bool isReturn)
-            => refKind switch {
+            => refKind switch
+            {
                 RefKind.None => "",
                 RefKind.Ref => "ref ",
                 RefKind.Out => "out ",

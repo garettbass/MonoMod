@@ -3,8 +3,10 @@ using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
-namespace MonoMod.Roslyn.UnitTests.Verifiers {
-    internal static class CSharpVerifierHelper {
+namespace MonoMod.Roslyn.UnitTests.Verifiers
+{
+    internal static class CSharpVerifierHelper
+    {
         /// <summary>
         /// By default, the compiler reports diagnostics for nullable reference types at
         /// <see cref="DiagnosticSeverity.Warning"/>, and the analyzer test framework defaults to only validating
@@ -15,7 +17,8 @@ namespace MonoMod.Roslyn.UnitTests.Verifiers {
         internal static ImmutableDictionary<string, ReportDiagnostic> NullableWarnings { get; } =
             GetNullableWarningsFromCompiler();
 
-        private static ImmutableDictionary<string, ReportDiagnostic> GetNullableWarningsFromCompiler() {
+        private static ImmutableDictionary<string, ReportDiagnostic> GetNullableWarningsFromCompiler()
+        {
             string[] args = { "/warnaserror:nullable" };
             var commandLineArguments = CSharpCommandLineParser.Default.Parse(args,
                 baseDirectory: Environment.CurrentDirectory, sdkDirectory: Environment.CurrentDirectory);

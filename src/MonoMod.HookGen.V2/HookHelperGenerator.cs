@@ -10,15 +10,18 @@ using System.Reflection;
 using System.Text;
 using System.Threading;
 
-namespace MonoMod.HookGen.V2 {
+namespace MonoMod.HookGen.V2
+{
 
     // TODO: finish support for unnameable types
 
     [Generator]
-    public sealed class HookHelperGenerator : IIncrementalGenerator {
+    public sealed class HookHelperGenerator : IIncrementalGenerator
+    {
 
         // NOTE: keep this in sync with the injected source below
-        private enum DetourKind {
+        private enum DetourKind
+        {
             Hook = 0,
             ILHook = 1,
             Both = 2,
@@ -130,28 +133,34 @@ namespace MonoMod.HookGen.V2 {
         private sealed class InProgressTypeModel(
             HashSet<string>? MemberNames,
             HashSet<string>? MemberPrefixes,
-            HashSet<string>? MemberSuffixes) {
+            HashSet<string>? MemberSuffixes)
+        {
             public HashSet<string>? MemberNames { get; set; } = MemberNames;
             public HashSet<string>? MemberPrefixes { get; set; } = MemberPrefixes;
             public HashSet<string>? MemberSuffixes { get; set; } = MemberSuffixes;
         }
 
-        public void Initialize(IncrementalGeneratorInitializationContext context) {
+        public void Initialize(IncrementalGeneratorInitializationContext context)
+        {
 
-            context.RegisterPostInitializationOutput(ctx => {
+            context.RegisterPostInitializationOutput(ctx =>
+            {
                 ctx.AddSource(GenHelperForTypeAttrFile, GenHelperForTypeAttributeSource);
             });
 
             var attributes = context.SyntaxProvider.ForAttributeWithMetadataName(
                 GenHelperForTypeAttributeFqn,
                 static (_, _) => true,
-                static (ctx, ct) => {
+                static (ctx, ct) =>
+                {
                     using var builder = ImmutableArrayBuilder<AttributeModel>.Rent();
 
-                    foreach (var attr in ctx.Attributes) {
+                    foreach (var attr in ctx.Attributes)
+                    {
                         ct.ThrowIfCancellationRequested();
                         var model = ReadTypeModelForAttribute(ctx.SemanticModel.Compilation, ctx.TargetSymbol, attr);
-                        if (model is not null) {
+                        if (model is not null)
+                        {
                             builder.Add(model);
                         }
                     }
@@ -162,13 +171,16 @@ namespace MonoMod.HookGen.V2 {
 
             // all attributes are now available, we now want to group them by target assembly and target type
             var groupedByAssembly = attributes.Collect()
-                .SelectMany((attrs, ct) => {
+                .SelectMany((attrs, ct) =>
+                {
                     var dict = asmIdentBuilderDictPool.Allocate();
 
-                    foreach (var attr in attrs) {
+                    foreach (var attr in attrs)
+                    {
                         ct.ThrowIfCancellationRequested();
 
-                        if (!dict.TryGetValue(attr.TargetAssembly, out var asmBuilder)) {
+                        if (!dict.TryGetValue(attr.TargetAssembly, out var asmBuilder))
+                        {
                             dict.Add(attr.TargetAssembly, asmBuilder = ImmutableArrayBuilder<AttributeModel>.Rent());
                         }
 
@@ -177,7 +189,8 @@ namespace MonoMod.HookGen.V2 {
 
                     using var builder = ImmutableArrayBuilder<(MetadataReference Assembly, EquatableArray<AttributeModel> Attributes)>.Rent();
 
-                    foreach (var kvp in dict) {
+                    foreach (var kvp in dict)
+                    {
                         ct.ThrowIfCancellationRequested();
                         builder.Add((kvp.Key, kvp.Value.ToImmutable()));
                         kvp.Value.Dispose();
@@ -191,13 +204,16 @@ namespace MonoMod.HookGen.V2 {
 
             // now for each assembly, we want to group by type
             var groupedByType = groupedByAssembly
-                .Select((t, ct) => {
+                .Select((t, ct) =>
+                {
                     var dict = typeIdentBuilderDictPool.Allocate();
 
-                    foreach (var attr in t.Attributes) {
+                    foreach (var attr in t.Attributes)
+                    {
                         ct.ThrowIfCancellationRequested();
 
-                        if (!dict.TryGetValue(attr.TargetType, out var asmBuilder)) {
+                        if (!dict.TryGetValue(attr.TargetType, out var asmBuilder))
+                        {
                             dict.Add(attr.TargetType, asmBuilder = ImmutableArrayBuilder<AttributeModel>.Rent());
                         }
 
@@ -206,7 +222,8 @@ namespace MonoMod.HookGen.V2 {
 
                     using var builder = ImmutableArrayBuilder<TypeModel>.Rent();
 
-                    foreach (var kvp in dict) {
+                    foreach (var kvp in dict)
+                    {
                         ct.ThrowIfCancellationRequested();
                         builder.Add(new(kvp.Key, kvp.Value.ToImmutable()));
                         kvp.Value.Dispose();
@@ -220,32 +237,40 @@ namespace MonoMod.HookGen.V2 {
 
             // then, for each type, we want to unify the requested attribute options
             var unifiedGroupedByType = groupedByType
-                .Select((model, ct) => {
+                .Select((model, ct) =>
+                {
                     using var typeModelBuilder = ImmutableArrayBuilder<TypeModel>.Rent();
                     using var attrsBuilder = ImmutableArrayBuilder<AttributeModel>.Rent();
 
-                    foreach (var type in model.Types) {
+                    foreach (var type in model.Types)
+                    {
                         ct.ThrowIfCancellationRequested();
                         var dict = inProgressTypeModelDictPool.Allocate();
 
-                        foreach (var attr in type.Attributes) {
+                        foreach (var attr in type.Attributes)
+                        {
                             var tuple = (attr.Options.Kind, attr.Options.IncludeNested, attr.Options.DistinguishOverloads);
-                            if (!dict.TryGetValue(tuple, out var inProgress)) {
+                            if (!dict.TryGetValue(tuple, out var inProgress))
+                            {
                                 dict.Add(tuple, inProgress = new(stringHashSetPool.Allocate(), null, null));
                             }
 
-                            if (attr.Options.ExplicitMembers is null) {
-                                if (inProgress.MemberNames is not null) {
+                            if (attr.Options.ExplicitMembers is null)
+                            {
+                                if (inProgress.MemberNames is not null)
+                                {
                                     inProgress.MemberNames.Clear();
                                     stringHashSetPool.Free(inProgress.MemberNames);
                                 }
                                 inProgress.MemberNames = null;
-                                if (inProgress.MemberPrefixes is not null) {
+                                if (inProgress.MemberPrefixes is not null)
+                                {
                                     inProgress.MemberPrefixes.Clear();
                                     stringHashSetPool.Free(inProgress.MemberPrefixes);
                                 }
                                 inProgress.MemberPrefixes = null;
-                                if (inProgress.MemberSuffixes is not null) {
+                                if (inProgress.MemberSuffixes is not null)
+                                {
                                     inProgress.MemberSuffixes.Clear();
                                     stringHashSetPool.Free(inProgress.MemberSuffixes);
                                 }
@@ -254,13 +279,16 @@ namespace MonoMod.HookGen.V2 {
                                 break;
                             }
 
-                            foreach (var name in attr.Options.ExplicitMembers) {
+                            foreach (var name in attr.Options.ExplicitMembers)
+                            {
                                 _ = (inProgress.MemberNames ??= stringHashSetPool.Allocate()).Add(name);
                             }
-                            foreach (var name in attr.Options.MemberPrefixes) {
+                            foreach (var name in attr.Options.MemberPrefixes)
+                            {
                                 _ = (inProgress.MemberPrefixes ??= stringHashSetPool.Allocate()).Add(name);
                             }
-                            foreach (var name in attr.Options.MemberSuffixes) {
+                            foreach (var name in attr.Options.MemberSuffixes)
+                            {
                                 _ = (inProgress.MemberSuffixes ??= stringHashSetPool.Allocate()).Add(name);
                             }
                         }
@@ -268,17 +296,20 @@ namespace MonoMod.HookGen.V2 {
                         ct.ThrowIfCancellationRequested();
 
                         attrsBuilder.Clear();
-                        foreach (var kvp in dict) {
+                        foreach (var kvp in dict)
+                        {
 
                             var prefixes = ImmutableArray<string>.Empty;
                             var suffixes = ImmutableArray<string>.Empty;
 
-                            if (kvp.Value.MemberPrefixes is not null) {
+                            if (kvp.Value.MemberPrefixes is not null)
+                            {
                                 prefixes = kvp.Value.MemberPrefixes.ToImmutableArray();
                                 kvp.Value.MemberPrefixes.Clear();
                                 stringHashSetPool.Free(kvp.Value.MemberPrefixes);
                             }
-                            if (kvp.Value.MemberSuffixes is not null) {
+                            if (kvp.Value.MemberSuffixes is not null)
+                            {
                                 suffixes = kvp.Value.MemberSuffixes.ToImmutableArray();
                                 kvp.Value.MemberSuffixes.Clear();
                                 stringHashSetPool.Free(kvp.Value.MemberSuffixes);
@@ -312,10 +343,12 @@ namespace MonoMod.HookGen.V2 {
             var neededSignaturesWithDupes = signaturesAndTypes.SelectMany((t, ct) => t.Item1.AsImmutableArray());
 
             var neededSignaturesWithoutDupes = neededSignaturesWithDupes.Collect()
-                .SelectMany((arr, ct) => {
+                .SelectMany((arr, ct) =>
+                {
                     var set = methodSigHashSetPool.Allocate();
 
-                    foreach (var method in arr) {
+                    foreach (var method in arr)
+                    {
                         _ = set.Add(method);
                     }
 
@@ -330,10 +363,12 @@ namespace MonoMod.HookGen.V2 {
             var typesWithoutDupes = signaturesAndTypes
                 .SelectMany((t, ct) => t.Item2.AsImmutableArray())
                 .Collect()
-                .SelectMany((arr, ct) => {
+                .SelectMany((arr, ct) =>
+                {
                     var set = typeRefHashSetPool.Allocate();
 
-                    foreach (var type in arr) {
+                    foreach (var type in arr)
+                    {
                         _ = set.Add(type);
                     }
 
@@ -348,8 +383,10 @@ namespace MonoMod.HookGen.V2 {
             context.RegisterSourceOutput(generatableTypes, EmitHelperTypes);
         }
 
-        private void EmitDelegateTypes(SourceProductionContext context, ImmutableArray<MethodSignature> signatures) {
-            if (signatures.IsEmpty) {
+        private void EmitDelegateTypes(SourceProductionContext context, ImmutableArray<MethodSignature> signatures)
+        {
+            if (signatures.IsEmpty)
+            {
                 return;
             }
 
@@ -360,7 +397,8 @@ namespace MonoMod.HookGen.V2 {
                 .WriteLine("namespace MonoMod.HookGen;")
                 .WriteLine();
 
-            foreach (var sig in signatures) {
+            foreach (var sig in signatures)
+            {
                 var origName = GetOrigDelegateName(sig);
 
                 var parameters = sig.ParameterTypes.AsImmutableArray();
@@ -374,18 +412,21 @@ namespace MonoMod.HookGen.V2 {
                     .WriteLine("(")
                     .IncreaseIndent();
 
-                if (sig.ThisType is { } thisType) {
+                if (sig.ThisType is { } thisType)
+                {
                     _ = cb
                         .Write(thisType.Refness)
                         .Write(thisType.FqName)
                         .Write(" @this");
 
-                    if (parameters.Length != 0) {
+                    if (parameters.Length != 0)
+                    {
                         cb.WriteLine(",");
                     }
                 }
 
-                for (var i = 0; i < parameters.Length; i++) {
+                for (var i = 0; i < parameters.Length; i++)
+                {
                     var param = parameters[i];
 
                     _ = cb
@@ -394,7 +435,8 @@ namespace MonoMod.HookGen.V2 {
                         .Write(" arg")
                         .Write(i.ToString(CultureInfo.InvariantCulture));
 
-                    if (i != parameters.Length - 1) {
+                    if (i != parameters.Length - 1)
+                    {
                         cb.WriteLine(",");
                     }
                 }
@@ -412,7 +454,8 @@ namespace MonoMod.HookGen.V2 {
                     .Write(origName)
                     .Write(" orig");
 
-                if (sig.ThisType is { } thisType2) {
+                if (sig.ThisType is { } thisType2)
+                {
                     _ = cb
                         .WriteLine(",")
                         .Write(thisType2.Refness)
@@ -420,7 +463,8 @@ namespace MonoMod.HookGen.V2 {
                         .Write(" @this");
                 }
 
-                for (var i = 0; i < parameters.Length; i++) {
+                for (var i = 0; i < parameters.Length; i++)
+                {
                     var param = parameters[i];
 
                     _ = cb
@@ -437,13 +481,15 @@ namespace MonoMod.HookGen.V2 {
             context.AddSource(DelegateTypesFile, sb.ToString());
         }
 
-        private void EmitHelperTypes(SourceProductionContext context, GeneratableTypeModel type) {
+        private void EmitHelperTypes(SourceProductionContext context, GeneratableTypeModel type)
+        {
             var sb = new StringBuilder();
             var cb = new CodeBuilder(sb);
 
             cb.WriteHeader();
 
-            if (type.HasHook) {
+            if (type.HasHook)
+            {
                 cb.WriteLine("namespace On")
                     .OpenBlock();
 
@@ -457,7 +503,8 @@ namespace MonoMod.HookGen.V2 {
                     .WriteLine();
             }
 
-            if (type.HasIl) {
+            if (type.HasIl)
+            {
                 cb.WriteLine("namespace IL")
                     .OpenBlock();
 
@@ -474,20 +521,28 @@ namespace MonoMod.HookGen.V2 {
             context.AddSource($"{type.AssemblyIdentity.Name}_{type.Type.FullContextName}.g.cs", sb.ToString());
         }
 
-        private static void EmitTypeMembers(GeneratableTypeModel type, CodeBuilder cb, bool il) {
-            foreach (var member in type.Members) {
+        private static void EmitTypeMembers(GeneratableTypeModel type, CodeBuilder cb, bool il)
+        {
+            foreach (var member in type.Members)
+            {
 
-                if (il) {
-                    if (member.Kind == DetourKind.Hook) {
+                if (il)
+                {
+                    if (member.Kind == DetourKind.Hook)
+                    {
                         continue;
                     }
-                } else {
-                    if (member.Kind == DetourKind.ILHook) {
+                }
+                else
+                {
+                    if (member.Kind == DetourKind.ILHook)
+                    {
                         continue;
                     }
                 }
 
-                var bindingFlags = member.Accessibility switch {
+                var bindingFlags = member.Accessibility switch
+                {
                     Accessibility.NotApplicable => BindingFlags.NonPublic,
                     Accessibility.Private => BindingFlags.NonPublic,
                     Accessibility.ProtectedAndInternal => BindingFlags.NonPublic,
@@ -507,7 +562,8 @@ namespace MonoMod.HookGen.V2 {
                     .Write(hookType)
                     .Write(" ")
                     .Write(SanitizeName(member.Name));
-                if ((il && member.HasOverloads) || member.DistinguishByName) {
+                if ((il && member.HasOverloads) || member.DistinguishByName)
+                {
                     AppendSignatureIdentifier(cb, member.Signature);
                 }
                 cb.Write("(")
@@ -519,9 +575,12 @@ namespace MonoMod.HookGen.V2 {
                     .WriteLine(");")
                     .Write("var method = type.");
 
-                if (member.Name == ".ctor") {
+                if (member.Name == ".ctor")
+                {
                     cb.Write("GetConstructor(");
-                } else {
+                }
+                else
+                {
                     cb.Write("GetMethod(\"")
                         .Write(member.Name)
                         .Write("\", ");
@@ -529,15 +588,17 @@ namespace MonoMod.HookGen.V2 {
 
 
                 cb.Write("(global::System.Reflection.BindingFlags)")
-                    .Write(((int) bindingFlags).ToString(CultureInfo.InvariantCulture))
+                    .Write(((int)bindingFlags).ToString(CultureInfo.InvariantCulture))
                     .WriteLine(", new global::System.Type[]")
                     .OpenBlock();
 
-                foreach (var param in member.Signature.ParameterTypes.AsImmutableArray()) {
+                foreach (var param in member.Signature.ParameterTypes.AsImmutableArray())
+                {
                     cb.Write("typeof(")
                         .Write(param.FqName)
                         .Write(")");
-                    if (!string.IsNullOrWhiteSpace(param.Refness)) {
+                    if (!string.IsNullOrWhiteSpace(param.Refness))
+                    {
                         cb.Write(".MakeByRefType()");
                     }
                     cb.WriteLine(",");
@@ -556,13 +617,19 @@ namespace MonoMod.HookGen.V2 {
                 ;
             }
 
-            foreach (var nested in type.NestedTypes) {
-                if (il) {
-                    if (!nested.HasIl) {
+            foreach (var nested in type.NestedTypes)
+            {
+                if (il)
+                {
+                    if (!nested.HasIl)
+                    {
                         continue;
                     }
-                } else {
-                    if (!nested.HasHook) {
+                }
+                else
+                {
+                    if (!nested.HasHook)
+                    {
                         continue;
                     }
                 }
@@ -577,7 +644,8 @@ namespace MonoMod.HookGen.V2 {
             }
         }
 
-        private static string GetOrigDelegateName(MethodSignature sig) {
+        private static string GetOrigDelegateName(MethodSignature sig)
+        {
             return "Orig" + GetHookDelegateName(sig);
         }
 
@@ -588,7 +656,8 @@ namespace MonoMod.HookGen.V2 {
         private static string SanitizeMdName(string v)
             => v.Replace(".", "_").Replace("`", "_").Replace("+", "_");
 
-        private static string GetHookDelegateName(MethodSignature sig) {
+        private static string GetHookDelegateName(MethodSignature sig)
+        {
 
             var sb = stringBuilderPool.Allocate();
 
@@ -599,14 +668,16 @@ namespace MonoMod.HookGen.V2 {
                 .Append('_')
                 .Append(parameters.Length);
 
-            if (sig.ThisType is { } thisType) {
+            if (sig.ThisType is { } thisType)
+            {
                 _ = sb
                     .Append('_')
                     .Append(SanitizeRefness(thisType.Refness))
                     .Append(SanitizeMdName(thisType.MdName));
             }
 
-            for (var i = 0; i < parameters.Length; i++) {
+            for (var i = 0; i < parameters.Length; i++)
+            {
                 var param = parameters[i];
 
                 _ = sb
@@ -621,7 +692,8 @@ namespace MonoMod.HookGen.V2 {
             return result;
         }
 
-        private static void AppendSignatureIdentifier(CodeBuilder cb, MethodSignature sig) {
+        private static void AppendSignatureIdentifier(CodeBuilder cb, MethodSignature sig)
+        {
             var parameters = sig.ParameterTypes.AsImmutableArray();
             cb.Write("_")
                 .Write(SanitizeRefness(sig.ReturnType.Refness))
@@ -629,7 +701,8 @@ namespace MonoMod.HookGen.V2 {
                 .Write('_')
                 .Write(parameters.Length.ToString(CultureInfo.InvariantCulture));
 
-            if (sig.ThisType is { } thisType) {
+            if (sig.ThisType is { } thisType)
+            {
                 _ = cb
                     .Write('_')
                     .Write(SanitizeRefness(thisType.Refness))
@@ -637,7 +710,8 @@ namespace MonoMod.HookGen.V2 {
             }
 
 
-            for (var i = 0; i < parameters.Length; i++) {
+            for (var i = 0; i < parameters.Length; i++)
+            {
                 var param = parameters[i];
 
                 _ = cb
@@ -647,33 +721,40 @@ namespace MonoMod.HookGen.V2 {
             }
         }
 
-        private static (EquatableArray<MethodSignature>, EquatableArray<TypeRef>) ExtractSignaturesAndTypes(GeneratableAssembly assembly, CancellationToken token) {
+        private static (EquatableArray<MethodSignature>, EquatableArray<TypeRef>) ExtractSignaturesAndTypes(GeneratableAssembly assembly, CancellationToken token)
+        {
             var sigSet = methodSigHashSetPool.Allocate();
             var typeSet = typeRefHashSetPool.Allocate();
             var queue = genTypeModelQueuePool.Allocate();
 
-            foreach (var type in assembly.Types) {
+            foreach (var type in assembly.Types)
+            {
                 queue.Enqueue(type);
             }
 
-            while (queue.Count > 0) {
+            while (queue.Count > 0)
+            {
                 var type = queue.Dequeue();
 
                 // add to the type set
                 _ = typeSet.Add(type.Type.InnermostType.WithRefness());
 
-                foreach (var method in type.Members) {
-                    if (method.Kind != DetourKind.ILHook) {
+                foreach (var method in type.Members)
+                {
+                    if (method.Kind != DetourKind.ILHook)
+                    {
                         sigSet.Add(method.Signature);
                     }
 
                     _ = typeSet.Add(method.Signature.ReturnType.WithRefness());
-                    foreach (var p in method.Signature.ParameterTypes) {
+                    foreach (var p in method.Signature.ParameterTypes)
+                    {
                         _ = typeSet.Add(p.WithRefness());
                     }
                 }
 
-                foreach (var nested in type.NestedTypes) {
+                foreach (var nested in type.NestedTypes)
+                {
                     queue.Enqueue(nested);
                 }
             }
@@ -688,9 +769,12 @@ namespace MonoMod.HookGen.V2 {
             return (methodSigs, types);
         }
 
-        private static bool MetadataReferenceEquals(MetadataReference a, MetadataReference b) {
-            if (a is CompilationReference ca) {
-                if (b is CompilationReference cb) {
+        private static bool MetadataReferenceEquals(MetadataReference a, MetadataReference b)
+        {
+            if (a is CompilationReference ca)
+            {
+                if (b is CompilationReference cb)
+                {
                     return ca.Compilation == cb.Compilation;
                 }
                 return false;
@@ -698,15 +782,20 @@ namespace MonoMod.HookGen.V2 {
             return ReferenceEquals(a, b);
         }
 
-        private sealed record AssemblyModel(MetadataReference Assembly, EquatableArray<TypeModel> Types) {
+        private sealed record AssemblyModel(MetadataReference Assembly, EquatableArray<TypeModel> Types)
+        {
             public bool Equals(AssemblyModel other)
                 => MetadataReferenceEquals(Assembly, other.Assembly)
                 && Types.Equals(other.Types);
-            public override int GetHashCode() {
+            public override int GetHashCode()
+            {
                 var hc = new HashCode();
-                if (Assembly is CompilationReference cr) {
+                if (Assembly is CompilationReference cr)
+                {
                     hc.Add(cr.Compilation);
-                } else {
+                }
+                else
+                {
                     hc.Add(Assembly);
                 }
                 hc.Add(Types);
@@ -721,8 +810,10 @@ namespace MonoMod.HookGen.V2 {
             bool IncludeNested, bool DistinguishOverloads,
             HashSet<string>? ExplicitMembers,
             EquatableArray<string> MemberPrefixes,
-            EquatableArray<string> MemberSuffixes) {
-            public bool Equals(AttributeOptions other) {
+            EquatableArray<string> MemberSuffixes)
+        {
+            public bool Equals(AttributeOptions other)
+            {
                 return Kind == other.Kind
                     && IncludeNested == other.IncludeNested
                     && DistinguishOverloads == other.DistinguishOverloads
@@ -733,32 +824,40 @@ namespace MonoMod.HookGen.V2 {
                         && stringHashSetEqualityComparer.Equals(ExplicitMembers, other.ExplicitMembers));
             }
 
-            public override int GetHashCode() {
+            public override int GetHashCode()
+            {
                 var hc = new HashCode();
                 hc.Add(Kind);
                 hc.Add(IncludeNested);
                 hc.Add(DistinguishOverloads);
                 hc.Add(MemberPrefixes);
                 hc.Add(MemberSuffixes);
-                if (ExplicitMembers is not null) {
+                if (ExplicitMembers is not null)
+                {
                     hc.Add(stringHashSetEqualityComparer.GetHashCode(ExplicitMembers));
                 }
                 return hc.ToHashCode();
             }
 
-            public bool MatchesName(string name) {
-                if (ExplicitMembers is not null && ExplicitMembers.Contains(name)) {
+            public bool MatchesName(string name)
+            {
+                if (ExplicitMembers is not null && ExplicitMembers.Contains(name))
+                {
                     return true;
                 }
 
-                foreach (var prefix in MemberPrefixes) {
-                    if (name.StartsWith(prefix, StringComparison.Ordinal)) {
+                foreach (var prefix in MemberPrefixes)
+                {
+                    if (name.StartsWith(prefix, StringComparison.Ordinal))
+                    {
                         return true;
                     }
                 }
 
-                foreach (var suffix in MemberSuffixes) {
-                    if (name.EndsWith(suffix, StringComparison.Ordinal)) {
+                foreach (var suffix in MemberSuffixes)
+                {
+                    if (name.EndsWith(suffix, StringComparison.Ordinal))
+                    {
                         return true;
                     }
                 }
@@ -770,18 +869,23 @@ namespace MonoMod.HookGen.V2 {
         private sealed record AttributeModel(
             MetadataReference TargetAssembly,
             TypeContext TargetType,
-            AttributeOptions Options) {
+            AttributeOptions Options)
+        {
 
             public bool Equals(AttributeModel other)
                 => MetadataReferenceEquals(TargetAssembly, other.TargetAssembly)
                 && TargetType.Equals(other.TargetType)
                 && Options.Equals(other.Options);
 
-            public override int GetHashCode() {
+            public override int GetHashCode()
+            {
                 var hc = new HashCode();
-                if (TargetAssembly is CompilationReference cr) {
+                if (TargetAssembly is CompilationReference cr)
+                {
                     hc.Add(cr.Compilation);
-                } else {
+                }
+                else
+                {
                     hc.Add(TargetAssembly);
                 }
                 hc.Add(TargetType);
@@ -790,7 +894,8 @@ namespace MonoMod.HookGen.V2 {
             }
         }
 
-        private static AttributeModel? ReadTypeModelForAttribute(Compilation compilation, ISymbol targetSym, AttributeData attr) {
+        private static AttributeModel? ReadTypeModelForAttribute(Compilation compilation, ISymbol targetSym, AttributeData attr)
+        {
 
             if (attr.ConstructorArguments is not [{ Value: INamedTypeSymbol targetType }])
                 return null;
@@ -802,11 +907,14 @@ namespace MonoMod.HookGen.V2 {
             var memberPrefixes = ImmutableArray<string>.Empty;
             var memberSuffixes = ImmutableArray<string>.Empty;
 
-            foreach (var named in attr.NamedArguments) {
-                switch (named.Key) {
+            foreach (var named in attr.NamedArguments)
+            {
+                switch (named.Key)
+                {
                     case "Kind" when named.Value is { Kind: TypedConstantKind.Enum, Value: int val }:
-                        kind = (DetourKind) val;
-                        if (kind is not DetourKind.Hook and not DetourKind.ILHook and not DetourKind.Both) {
+                        kind = (DetourKind)val;
+                        if (kind is not DetourKind.Hook and not DetourKind.ILHook and not DetourKind.Both)
+                        {
                             return null;
                         }
                         break;
@@ -832,7 +940,8 @@ namespace MonoMod.HookGen.V2 {
             }
 
             var mr = compilation.GetMetadataReference(targetType.ContainingAssembly);
-            if (mr is null) {
+            if (mr is null)
+            {
                 // presumably, this means it's in this assembly, so we don't care about it
                 return null;
             }
@@ -859,23 +968,28 @@ namespace MonoMod.HookGen.V2 {
 
         // I'm OK putting this in the pipeline, because the IAssemblySymbol here will always represent a metadata reference.
         // The symbols for those are reused when possible, as far as I can tell.
-        private static (AssemblyModel Model, IAssemblySymbol? Symbol) GetAssemblySymbol((AssemblyModel Left, Compilation Right) tuple, CancellationToken token) {
+        private static (AssemblyModel Model, IAssemblySymbol? Symbol) GetAssemblySymbol((AssemblyModel Left, Compilation Right) tuple, CancellationToken token)
+        {
             var symbol = tuple.Right.GetAssemblyOrModuleSymbol(tuple.Left.Assembly);
-            if (symbol is IModuleSymbol module) {
+            if (symbol is IModuleSymbol module)
+            {
                 symbol = module.ContainingAssembly;
             }
-            if (symbol is not IAssemblySymbol assembly) {
+            if (symbol is not IAssemblySymbol assembly)
+            {
                 return (tuple.Left, null);
             }
             return (tuple.Left, assembly);
         }
 
-        private static GeneratableAssembly GetAllMembersToGenerate((AssemblyModel Model, IAssemblySymbol Symbol) tuple, CancellationToken token) {
+        private static GeneratableAssembly GetAllMembersToGenerate((AssemblyModel Model, IAssemblySymbol Symbol) tuple, CancellationToken token)
+        {
             using var generatableTypesBuilder = ImmutableArrayBuilder<GeneratableTypeModel>.Rent();
 
             var (model, assembly) = tuple;
 
-            foreach (var type in model.Types) {
+            foreach (var type in model.Types)
+            {
                 var typeSym = assembly.GetTypeByMetadataName(type.TargetType.InnermostType.MdName);
                 if (typeSym is null)
                     continue;
@@ -888,19 +1002,23 @@ namespace MonoMod.HookGen.V2 {
             return new(generatableTypesBuilder.ToImmutable());
         }
 
-        private static GeneratableTypeModel? GetTypeModel(TypeContext typeContext, ImmutableArray<AttributeModel> attrModels, INamedTypeSymbol type, CancellationToken token) {
+        private static GeneratableTypeModel? GetTypeModel(TypeContext typeContext, ImmutableArray<AttributeModel> attrModels, INamedTypeSymbol type, CancellationToken token)
+        {
             token.ThrowIfCancellationRequested();
 
             // ignore generic types, they can't be patched reliably
-            if (type.IsGenericType) {
+            if (type.IsGenericType)
+            {
                 return null;
             }
 
-            if (type.IsAnonymousType) {
+            if (type.IsAnonymousType)
+            {
                 return null;
             }
 
-            if (type.IsImplicitlyDeclared) {
+            if (type.IsImplicitlyDeclared)
+            {
                 // TODO: maybe not this?
                 return null;
             }
@@ -911,8 +1029,10 @@ namespace MonoMod.HookGen.V2 {
             bool hasHook = false, hasIl = false;
 
             // first, process non-type members
-            foreach (var member in type.GetMembers()) {
-                if (member.Kind is not SymbolKind.Method or SymbolKind.Property) {
+            foreach (var member in type.GetMembers())
+            {
+                if (member.Kind is not SymbolKind.Method or SymbolKind.Property)
+                {
                     continue;
                 }
 
@@ -921,46 +1041,58 @@ namespace MonoMod.HookGen.V2 {
                 bool? alreadyMatchedWithDistinguishedOverloads = null;
                 var hasOverloads = type.GetMembers(member.Name).Length > 1;
 
-                foreach (var attr in attrModels) {
+                foreach (var attr in attrModels)
+                {
                     var options = attr.Options;
 
-                    if (alreadyMatchedWithDistinguishedOverloads is { } matchVal && matchVal == options.DistinguishOverloads) {
+                    if (alreadyMatchedWithDistinguishedOverloads is { } matchVal && matchVal == options.DistinguishOverloads)
+                    {
                         // we already matched this member with this distinguishOverloads value, skip
                         continue;
                     }
 
-                    if (!options.MatchesName(member.Name)) {
+                    if (!options.MatchesName(member.Name))
+                    {
                         continue;
                     }
 
                     GeneratableMemberModel? model = null;
 
                     // the member matched, do our processing
-                    if (member.Kind is SymbolKind.Property) {
-                        var prop = (IPropertySymbol) member;
+                    if (member.Kind is SymbolKind.Property)
+                    {
+                        var prop = (IPropertySymbol)member;
 
-                        if (prop.GetMethod is { } getMethod) {
+                        if (prop.GetMethod is { } getMethod)
+                        {
                             model = GetModelForMember(getMethod, options, hasOverloads);
                         }
-                        if (prop.SetMethod is { } setMethod) {
+                        if (prop.SetMethod is { } setMethod)
+                        {
                             model = GetModelForMember(setMethod, options, hasOverloads);
                         }
 
-                    } else if (member.Kind is SymbolKind.Method) {
-                        var method = (IMethodSymbol) member;
+                    }
+                    else if (member.Kind is SymbolKind.Method)
+                    {
+                        var method = (IMethodSymbol)member;
                         model = GetModelForMember(method, options, hasOverloads);
                     }
 
-                    if (model is not null) {
+                    if (model is not null)
+                    {
                         membersBuilder.Add(model);
                         hasHook |= options.Kind != DetourKind.ILHook;
                         hasIl |= options.Kind != DetourKind.Hook;
                     }
 
-                    if (alreadyMatchedWithDistinguishedOverloads is not null) {
+                    if (alreadyMatchedWithDistinguishedOverloads is not null)
+                    {
                         // we matched with both, no need to continue
                         break;
-                    } else {
+                    }
+                    else
+                    {
                         alreadyMatchedWithDistinguishedOverloads = options.DistinguishOverloads;
                     }
                 }
@@ -968,22 +1100,27 @@ namespace MonoMod.HookGen.V2 {
             }
 
             // then, process type members
-            foreach (var attr in attrModels) {
+            foreach (var attr in attrModels)
+            {
                 var options = attr.Options;
 
-                if (!options.IncludeNested) {
+                if (!options.IncludeNested)
+                {
                     continue;
                 }
 
-                foreach (var nested in type.GetTypeMembers()) {
+                foreach (var nested in type.GetTypeMembers())
+                {
                     token.ThrowIfCancellationRequested();
 
-                    if (!options.MatchesName(nested.Name)) {
+                    if (!options.MatchesName(nested.Name))
+                    {
                         continue;
                     }
 
                     var typeModel = GetTypeModel(GenHelpers.CreateTypeContext(nested, "class", SanitizeName), ImmutableArray.Create(attr), nested, token);
-                    if (typeModel is not null) {
+                    if (typeModel is not null)
+                    {
                         typesBuilder.Add(typeModel);
                         hasHook |= typeModel.HasHook;
                         hasIl |= typeModel.HasIl;
@@ -994,26 +1131,31 @@ namespace MonoMod.HookGen.V2 {
             return new(type.ContainingAssembly.Identity, typeContext, typesBuilder.ToImmutable(), membersBuilder.ToImmutable(), hasHook, hasIl);
         }
 
-        private static GeneratableMemberModel? GetModelForMember(IMethodSymbol method, AttributeOptions options, bool hasOverloads) {
+        private static GeneratableMemberModel? GetModelForMember(IMethodSymbol method, AttributeOptions options, bool hasOverloads)
+        {
             // skip generic methods
-            if (method.IsGenericMethod) {
+            if (method.IsGenericMethod)
+            {
                 return null;
             }
 
-            if (method.IsAbstract) {
+            if (method.IsAbstract)
+            {
                 return null;
             }
 
             using var paramTypeBuilder = ImmutableArrayBuilder<TypeRef>.Rent();
 
-            foreach (var param in method.Parameters) {
+            foreach (var param in method.Parameters)
+            {
                 paramTypeBuilder.Add(GenHelpers.CreateRef(param));
             }
 
             var returnType = GenHelpers.CreateRef(method.ReturnType, GenHelpers.GetRefString(method.RefKind, isReturn: true));
 
             TypeRef? thisType = null;
-            if (!method.IsStatic) {
+            if (!method.IsStatic)
+            {
                 var refKind = method.ContainingType.IsValueType
                     ? (method.IsReadOnly ? RefKind.RefReadOnly : RefKind.Ref)
                     : RefKind.None;
@@ -1028,7 +1170,8 @@ namespace MonoMod.HookGen.V2 {
                 method.DeclaredAccessibility, options.Kind);
         }
 
-        private static string SanitizeName(string name) {
+        private static string SanitizeName(string name)
+        {
             if (string.IsNullOrEmpty(name))
                 return string.Empty;
 
@@ -1047,7 +1190,8 @@ namespace MonoMod.HookGen.V2 {
             }
             */
 
-            if (result[0] is >= '0' and <= '9') {
+            if (result[0] is >= '0' and <= '9')
+            {
                 result = "@" + result;
             }
 

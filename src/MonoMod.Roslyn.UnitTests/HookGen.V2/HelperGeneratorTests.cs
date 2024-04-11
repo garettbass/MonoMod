@@ -9,13 +9,15 @@ using System.Reflection;
 using System.Threading.Tasks;
 using Xunit;
 
-namespace MonoMod.Roslyn.UnitTests.HookGen.V2 {
+namespace MonoMod.Roslyn.UnitTests.HookGen.V2
+{
 
 #pragma warning disable IDE0065
     using Test = CSharpSourceGeneratorTest<Verifiers.Adapter<HookHelperGenerator>, XUnitVerifier>;
 #pragma warning restore IDE0065
 
-    public partial class HelperGeneratorTests {
+    public partial class HelperGeneratorTests
+    {
 
         private static readonly Type generatorType = typeof(Verifiers.Adapter<HookHelperGenerator>);
         private static readonly (Type, string, string) attributesSource = (generatorType,
@@ -66,13 +68,15 @@ namespace MonoMod.Roslyn.UnitTests.HookGen.V2 {
                 """;
 
         [Fact]
-        public async Task NoAttributesNoGen() {
+        public async Task NoAttributesNoGen()
+        {
             const string source = """
                 using MonoMod.HookGen;
 
                 // no body
                 """;
-            await new Test {
+            await new Test
+            {
                 ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
                 TestState = {
                     Sources = { source },
@@ -84,14 +88,16 @@ namespace MonoMod.Roslyn.UnitTests.HookGen.V2 {
         }
 
         [Fact]
-        public async Task CanGenerateWithExactName() {
+        public async Task CanGenerateWithExactName()
+        {
             const string source = """
                 using MonoMod.HookGen;
 
                 [assembly: GenerateHookHelpers(typeof(MonoMod.Roslyn.UnitTests.HookGen.V2.HelperGeneratorTests), 
                     Members = ["NoAttributesNoGen"])]
                 """;
-            await new Test {
+            await new Test
+            {
                 ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
                 TestState = {
                     Sources = { source },
@@ -107,14 +113,16 @@ namespace MonoMod.Roslyn.UnitTests.HookGen.V2 {
         }
 
         [Fact]
-        public async Task CanGenerateWithPrefixName() {
+        public async Task CanGenerateWithPrefixName()
+        {
             const string source = """
                 using MonoMod.HookGen;
 
                 [assembly: GenerateHookHelpers(typeof(MonoMod.Roslyn.UnitTests.HookGen.V2.HelperGeneratorTests), 
                     MemberNamePrefixes = ["NoAttr"])]
                 """;
-            await new Test {
+            await new Test
+            {
                 ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
                 TestState = {
                     Sources = { source },
@@ -130,14 +138,16 @@ namespace MonoMod.Roslyn.UnitTests.HookGen.V2 {
         }
 
         [Fact]
-        public async Task CanGenerateWithSuffixName() {
+        public async Task CanGenerateWithSuffixName()
+        {
             const string source = """
                 using MonoMod.HookGen;
 
                 [assembly: GenerateHookHelpers(typeof(MonoMod.Roslyn.UnitTests.HookGen.V2.HelperGeneratorTests), 
                     MemberNameSuffixes = ["NoGen"])]
                 """;
-            await new Test {
+            await new Test
+            {
                 ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
                 TestState = {
                     Sources = { source },
@@ -153,7 +163,8 @@ namespace MonoMod.Roslyn.UnitTests.HookGen.V2 {
         }
 
         [Fact]
-        public async Task CanMatchMultipleWithPrefix() {
+        public async Task CanMatchMultipleWithPrefix()
+        {
             const string source = """
                 using MonoMod.HookGen;
 
@@ -208,7 +219,8 @@ namespace MonoMod.Roslyn.UnitTests.HookGen.V2 {
 
                 
                 """;
-            await new Test {
+            await new Test
+            {
                 ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
                 TestState = {
                     Sources = { source },
@@ -242,7 +254,8 @@ namespace MonoMod.Roslyn.UnitTests.HookGen.V2 {
             """;
 
         [Fact]
-        public async Task CanGenerateAllForNested() {
+        public async Task CanGenerateAllForNested()
+        {
             const string source = """
                 using MonoMod.HookGen;
 
@@ -390,7 +403,8 @@ namespace MonoMod.Roslyn.UnitTests.HookGen.V2 {
 
                 
                 """;
-            await new Test {
+            await new Test
+            {
                 ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
                 TestState = {
                     Sources = { source },
@@ -406,7 +420,8 @@ namespace MonoMod.Roslyn.UnitTests.HookGen.V2 {
         }
 
         [Fact]
-        public async Task CanDistinguishOverloadsOnly() {
+        public async Task CanDistinguishOverloadsOnly()
+        {
             const string source = """
                 using MonoMod.HookGen;
 
@@ -464,7 +479,8 @@ namespace MonoMod.Roslyn.UnitTests.HookGen.V2 {
 
                 
                 """;
-            await new Test {
+            await new Test
+            {
                 ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
                 TestState = {
                     Sources = { source },

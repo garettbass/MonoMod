@@ -6,17 +6,21 @@ using MonoMod.HookGen.V2;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis;
 
-namespace MonoMod.Roslyn.UnitTests.HookGen.V2 {
+namespace MonoMod.Roslyn.UnitTests.HookGen.V2
+{
 #pragma warning disable IDE0065 // Misplaced using directive
     using VerifyCS = CSharpAnalyzerVerifier<MonoMod.HookGen.V2.HookHelperAnalyzer>;
     using Test = CSharpAnalyzerVerifier<MonoMod.HookGen.V2.HookHelperAnalyzer>.Test;
 #pragma warning restore IDE0065 // Misplaced using directive
 
-    public class HelperAnalyzerTests {
+    public class HelperAnalyzerTests
+    {
 
         [Fact]
-        public async Task NoDiagnosticsWithNoAttributes() {
-            await new Test {
+        public async Task NoDiagnosticsWithNoAttributes()
+        {
+            await new Test
+            {
                 ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
                 TestState = {
                     Sources = {
@@ -37,8 +41,10 @@ namespace MonoMod.Roslyn.UnitTests.HookGen.V2 {
         }
 
         [Fact]
-        public async Task WarnOnRefTypeFromThisAssembly() {
-            await new Test {
+        public async Task WarnOnRefTypeFromThisAssembly()
+        {
+            await new Test
+            {
                 ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
                 TestState = {
                     Sources = {
@@ -63,8 +69,10 @@ namespace MonoMod.Roslyn.UnitTests.HookGen.V2 {
         }
 
         [Fact]
-        public async Task ErrorOnNotPublicized() {
-            await new Test {
+        public async Task ErrorOnNotPublicized()
+        {
+            await new Test
+            {
                 ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
                 TestState = {
                     Sources = {
@@ -88,8 +96,10 @@ namespace MonoMod.Roslyn.UnitTests.HookGen.V2 {
         }
 
         [Fact]
-        public async Task ErrorOnDoesNotReferenceRuntimeDetourAndNotPublicized() {
-            await new Test {
+        public async Task ErrorOnDoesNotReferenceRuntimeDetourAndNotPublicized()
+        {
+            await new Test
+            {
                 ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
                 TestState = {
                     Sources = {
@@ -113,7 +123,8 @@ namespace MonoMod.Roslyn.UnitTests.HookGen.V2 {
         }
 
         [Fact]
-        public async Task WarnOnNotPublicized() {
+        public async Task WarnOnNotPublicized()
+        {
             var coreReferences = await ReferenceAssemblies.Net.Net80.ResolveAsync(null, default).ConfigureAwait(false);
             var referenced = CSharpCompilation.Create("Referenced",
                 syntaxTrees: [SyntaxFactory.ParseSyntaxTree("""
@@ -128,7 +139,8 @@ namespace MonoMod.Roslyn.UnitTests.HookGen.V2 {
 
             var compilationMr = referenced.ToMetadataReference();
 
-            await new Test {
+            await new Test
+            {
                 ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
                 TestState = {
                     Sources = {
@@ -153,7 +165,8 @@ namespace MonoMod.Roslyn.UnitTests.HookGen.V2 {
         }
 
         [Fact]
-        public async Task DoNotWarnOnPublicized() {
+        public async Task DoNotWarnOnPublicized()
+        {
             var coreReferences = await ReferenceAssemblies.Net.Net80.ResolveAsync(null, default).ConfigureAwait(false);
             var referenced = CSharpCompilation.Create("Referenced",
                 syntaxTrees: [SyntaxFactory.ParseSyntaxTree("""
@@ -172,7 +185,8 @@ namespace MonoMod.Roslyn.UnitTests.HookGen.V2 {
 
             var compilationMr = referenced.ToMetadataReference();
 
-            await new Test {
+            await new Test
+            {
                 ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
                 TestState = {
                     Sources = {
@@ -197,7 +211,8 @@ namespace MonoMod.Roslyn.UnitTests.HookGen.V2 {
         }
 
         [Fact]
-        public async Task ErrorOnIrregularTypes() {
+        public async Task ErrorOnIrregularTypes()
+        {
             var coreReferences = await ReferenceAssemblies.Net.Net80.ResolveAsync(null, default).ConfigureAwait(false);
             var referenced = CSharpCompilation.Create("Referenced",
                 syntaxTrees: [SyntaxFactory.ParseSyntaxTree("""
@@ -216,7 +231,8 @@ namespace MonoMod.Roslyn.UnitTests.HookGen.V2 {
 
             var compilationMr = referenced.ToMetadataReference();
 
-            await new Test {
+            await new Test
+            {
                 ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
                 TestState = {
                     Sources = {
@@ -242,7 +258,8 @@ namespace MonoMod.Roslyn.UnitTests.HookGen.V2 {
         }
 
         [Fact]
-        public async Task ErrorOnGenericType() {
+        public async Task ErrorOnGenericType()
+        {
             var coreReferences = await ReferenceAssemblies.Net.Net80.ResolveAsync(null, default).ConfigureAwait(false);
             var referenced = CSharpCompilation.Create("Referenced",
                 syntaxTrees: [SyntaxFactory.ParseSyntaxTree("""
@@ -261,7 +278,8 @@ namespace MonoMod.Roslyn.UnitTests.HookGen.V2 {
 
             var compilationMr = referenced.ToMetadataReference();
 
-            await new Test {
+            await new Test
+            {
                 ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
                 TestState = {
                     Sources = {
