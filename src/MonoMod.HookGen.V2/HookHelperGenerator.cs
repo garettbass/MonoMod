@@ -1,4 +1,5 @@
 ﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using MonoMod.SourceGen.Internal;
 using MonoMod.SourceGen.Internal.Helpers;
 using System;
@@ -130,6 +131,14 @@ namespace MonoMod.HookGen.V2
 
         private static readonly IEqualityComparer<HashSet<string>> stringHashSetEqualityComparer = HashSet<string>.CreateSetComparer();
 
+        private sealed record LanguageSupportOptions(
+            bool FileLocalTypes, bool CollectionExpressions);
+        private sealed record BclSupportOptions(
+            bool DoesNotReturnAttribute);
+
+        private sealed record ContextSupportOptions(
+            LanguageSupportOptions Lang, BclSupportOptions Bcl);
+
         private sealed class InProgressTypeModel(
             HashSet<string>? MemberNames,
             HashSet<string>? MemberPrefixes,
@@ -147,6 +156,20 @@ namespace MonoMod.HookGen.V2
             {
                 ctx.AddSource(GenHelperForTypeAttrFile, GenHelperForTypeAttributeSource);
             });
+
+            var langSupport = context.ParseOptionsProvider.Select((options, ct) =>
+            {
+                var csOpts = (CSharpParseOptions)options;
+                var langVer = csOpts.LanguageVersion;
+                return new LanguageSupportOptions(langVer >= LanguageVersion.CSharp11, langVer >= LanguageVersion.CSharp12);
+            });
+
+            var bclSupport = context.CompilationProvider.Select((c, ct) =>
+            {
+                return new BclSupportOptions(c.GetTypeByMetadataName("System.Diagnostics.CodeAnalysis.DoesNotReturnAttribute") is not null);
+            });
+
+            var support = langSupport.Combine(bclSupport).Select((t, ct) => new ContextSupportOptions(t.Left, t.Right));
 
             var attributes = context.SyntaxProvider.ForAttributeWithMetadataName(
                 GenHelperForTypeAttributeFqn,
@@ -378,7 +401,9 @@ namespace MonoMod.HookGen.V2
                     return result;
                 });
 
-            var generatableTypes = generatableAssemblies.SelectMany((ass, ct) => ass.Types);
+            var generatableTypes = generatableAssemblies
+                .SelectMany((ass, ct) => ass.Types)
+                .Combine(support);
 
             context.RegisterSourceOutput(generatableTypes, EmitHelperTypes);
         }
@@ -481,12 +506,32 @@ namespace MonoMod.HookGen.V2
             context.AddSource(DelegateTypesFile, sb.ToString());
         }
 
-        private void EmitHelperTypes(SourceProductionContext context, GeneratableTypeModel type)
+        private void EmitHelperTypes(SourceProductionContext context, (GeneratableTypeModel, ContextSupportOptions) input)
         {
+            var (type, ctx) = input;
+
             var sb = new StringBuilder();
             var cb = new CodeBuilder(sb);
 
             cb.WriteHeader();
+
+            if (ctx.Lang.FileLocalTypes)
+            {
+                cb.WriteLine("file static class ThrowHelper")
+                    .OpenBlock();
+
+                if (ctx.Bcl.DoesNotReturnAttribute)
+                {
+                    cb.WriteLine("[global::System.Diagnostics.CodeAnalysis.DoesNotReturnAttribute]");
+                }
+
+                cb.WriteLine("public static void ThrowMissingMethod(string type, string method)")
+                    .OpenBlock()
+                    .WriteLine("throw new global::System.MissingMethodException(type, method);")
+                    .CloseBlock();
+
+                cb.CloseBlock();
+            }
 
             if (type.HasHook)
             {
@@ -495,7 +540,7 @@ namespace MonoMod.HookGen.V2
 
                 type.Type.AppendEnterContext(cb, "internal static");
 
-                EmitTypeMembers(type, cb, il: false);
+                EmitTypeMembers(type, cb, il: false, ctx);
 
                 type.Type.AppendExitContext(cb);
 
@@ -510,7 +555,7 @@ namespace MonoMod.HookGen.V2
 
                 type.Type.AppendEnterContext(cb, "internal static");
 
-                EmitTypeMembers(type, cb, il: true);
+                EmitTypeMembers(type, cb, il: true, ctx);
 
                 type.Type.AppendExitContext(cb);
 
@@ -521,7 +566,28 @@ namespace MonoMod.HookGen.V2
             context.AddSource($"{type.AssemblyIdentity.Name}_{type.Type.FullContextName}.g.cs", sb.ToString());
         }
 
-        private static void EmitTypeMembers(GeneratableTypeModel type, CodeBuilder cb, bool il)
+        private static void EmitThrowMissing(GeneratableTypeModel type, GeneratableMemberModel member, CodeBuilder cb, ContextSupportOptions ctx, bool force = false)
+        {
+            if (force || !ctx.Lang.FileLocalTypes)
+            {
+                cb.Write("throw new global::System.MissingMethodException(\"")
+                    .Write(type.Type.InnermostType.MdName)
+                    .Write("\", \"")
+                    .Write(member.Name)
+                    .WriteLine("\");");
+
+            }
+            else
+            {
+                cb.Write("ThrowHelper.ThrowMissingMethod(\"")
+                    .Write(type.Type.InnermostType.MdName)
+                    .Write("\", \"")
+                    .Write(member.Name)
+                    .WriteLine("\");");
+            }
+        }
+
+        private static void EmitTypeMembers(GeneratableTypeModel type, CodeBuilder cb, bool il, ContextSupportOptions ctx)
         {
             foreach (var member in type.Members)
             {
@@ -575,7 +641,7 @@ namespace MonoMod.HookGen.V2
                     .WriteLine(");")
                     .Write("var method = type.");
 
-                if (member.Name == ".ctor")
+                if (member.IsCtor)
                 {
                     cb.Write("GetConstructor(");
                 }
@@ -586,11 +652,11 @@ namespace MonoMod.HookGen.V2
                         .Write("\", ");
                 }
 
-
                 cb.Write("(global::System.Reflection.BindingFlags)")
                     .Write(((int)bindingFlags).ToString(CultureInfo.InvariantCulture))
-                    .WriteLine(", new global::System.Type[]")
-                    .OpenBlock();
+                    .Write(", null, ");
+
+                EmitOpenArray(cb, ctx, "global::System.Type");
 
                 foreach (var param in member.Signature.ParameterTypes.AsImmutableArray())
                 {
@@ -604,14 +670,12 @@ namespace MonoMod.HookGen.V2
                     cb.WriteLine(",");
                 }
 
-                cb.CloseBlock()
-                    .WriteLine(");")
-                    .Write("if (method is null) throw new global::System.MissingMethodException(\"")
-                    .Write(type.Type.InnermostType.MdName)
-                    .Write("\", \"")
-                    .Write(member.Name)
-                    .WriteLine("\");")
-                    .WriteLine("return new(method, hook, applyByDefault: applyByDefault);")
+                EmitCloseArray(cb, ctx);
+
+                cb.WriteLine(", null);")
+                    .Write("if (method is null) ");
+                EmitThrowMissing(type, member, cb, ctx);
+                cb.WriteLine($"return new(method{(ctx.Bcl.DoesNotReturnAttribute ? "" : "!")}, hook, applyByDefault: applyByDefault);")
                     .CloseBlock()
                     .WriteLine();
                 ;
@@ -638,9 +702,33 @@ namespace MonoMod.HookGen.V2
                     .Write(nested.Type.ContainingTypeDecls[0])
                     .OpenBlock();
 
-                EmitTypeMembers(nested, cb, il);
+                EmitTypeMembers(nested, cb, il, ctx);
 
                 cb.CloseBlock();
+            }
+        }
+
+        private static void EmitOpenArray(CodeBuilder cb, ContextSupportOptions ctx, string type)
+        {
+            if (ctx.Lang.CollectionExpressions)
+            {
+                cb.WriteLine("[").IncreaseIndent();
+            }
+            else
+            {
+                cb.Write("new ").Write(type).WriteLine("[]").OpenBlock();
+            }
+        }
+
+        private static void EmitCloseArray(CodeBuilder cb, ContextSupportOptions ctx)
+        {
+            if (ctx.Lang.CollectionExpressions)
+            {
+                cb.DecreaseIndent().Write("]");
+            }
+            else
+            {
+                cb.DecreaseIndent().Write("}");
             }
         }
 
@@ -958,12 +1046,13 @@ namespace MonoMod.HookGen.V2
             AssemblyIdentity AssemblyIdentity, TypeContext Type,
             EquatableArray<GeneratableTypeModel> NestedTypes,
             EquatableArray<GeneratableMemberModel> Members,
-            bool HasHook, bool HasIl);
+            bool HasHook, bool HasIl, bool NameIsSpeakable);
 
         private sealed record MethodSignature(TypeRef? ThisType, EquatableArray<TypeRef> ParameterTypes, TypeRef ReturnType);
 
-        private sealed record GeneratableMemberModel(string Name, MethodSignature Signature,
-            bool DistinguishByName, bool HasOverloads,
+        private sealed record GeneratableMemberModel(
+            string Name, MethodSignature Signature,
+            bool DistinguishByName, bool HasOverloads, bool IsCtor,
             Accessibility Accessibility, DetourKind Kind);
 
         // I'm OK putting this in the pipeline, because the IAssemblySymbol here will always represent a metadata reference.
@@ -1128,7 +1217,7 @@ namespace MonoMod.HookGen.V2
                 }
             }
 
-            return new(type.ContainingAssembly.Identity, typeContext, typesBuilder.ToImmutable(), membersBuilder.ToImmutable(), hasHook, hasIl);
+            return new(type.ContainingAssembly.Identity, typeContext, typesBuilder.ToImmutable(), membersBuilder.ToImmutable(), hasHook, hasIl, type.CanBeReferencedByName);
         }
 
         private static GeneratableMemberModel? GetModelForMember(IMethodSymbol method, AttributeOptions options, bool hasOverloads)
@@ -1166,7 +1255,7 @@ namespace MonoMod.HookGen.V2
             var sig = new MethodSignature(thisType, paramTypeBuilder.ToImmutable(), returnType);
 
             return new(method.Name, sig,
-                options.DistinguishOverloads && hasOverloads, hasOverloads,
+                options.DistinguishOverloads && hasOverloads, hasOverloads, method.MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor,
                 method.DeclaredAccessibility, options.Kind);
         }
 
