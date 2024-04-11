@@ -29,16 +29,16 @@ csharp_indent_block_contents = true
 csharp_indent_case_contents = true
 csharp_indent_labels = no_change
 csharp_indent_switch_labels = true
-csharp_new_line_before_catch = false
-csharp_new_line_before_else = false
-csharp_new_line_before_finally = false
+csharp_new_line_before_catch = true
+csharp_new_line_before_else = true
+csharp_new_line_before_finally = true
 csharp_new_line_before_members_in_anonymous_types = true
 csharp_new_line_before_members_in_object_initializers = true
-csharp_new_line_before_open_brace = none
-csharp_prefer_braces = false:silent
+csharp_new_line_before_open_brace = all
+csharp_prefer_braces = true:suggestion
 csharp_prefer_simple_default_expression = true:warning
 csharp_preserve_single_line_blocks = true
-csharp_preserve_single_line_statements = false
+csharp_preserve_single_line_statements = true
 csharp_space_after_cast = false
 csharp_space_after_colon_in_inheritance_clause = true
 csharp_space_after_comma = true
@@ -122,3 +122,6 @@ dotnet_diagnostic.CA1512.severity = none
 # CS9191: The 'ref' modifier for an argument corresponding to 'in' parameter is equivalent to 'in'. Consider using 'in' instead.
 # Some BCL versions use 'in', some use 'ref', even for the same APIs. They're source-compatible, so we don't really care.
 dotnet_diagnostic.CS9191.severity = suggestion
+
+# RS0030: API is banned
+dotnet_diagnostic.RS0030.severity = error
